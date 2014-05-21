@@ -14,6 +14,7 @@
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
+#include "bitcoinrpc.h"
 
 using namespace std;
 using namespace boost;
@@ -1084,12 +1085,22 @@ uint256 static GetOrphanRoot(const CBlockHeader* pblock)
 
 int64 static GetBlockValue(int nHeight, int64 nFees)
 {
-    int64 nSubsidy = 50 * COIN;
+    if (nHeight >= 8400)
+    {
+	int64 nSubsidy = 50 * COIN;
+
 
     // Subsidy is cut in half every 840000 blocks, which will occur approximately every 4 years
     nSubsidy >>= (nHeight / 840000); // Utex: 840k blocks in ~4 years
 
     return nSubsidy + nFees;
+    }
+    else
+    {
+    int64 nSubsidy=(int64)( 5000* GetDifficulty()); // should give abt 10 coins per block at initial Diff
+    nSubsidy >>= (nHeight / 4000); //Moores (new) law: half time 2000 x 2.5 min = 3.5 days
+    return nSubsidy + nFees;
+    }
 }
 
 static const int64 nTargetTimespan = 3.5 * 24 * 60 * 60; // Utex: 3.5 days
