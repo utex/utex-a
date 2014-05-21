@@ -1097,7 +1097,7 @@ int64 static GetBlockValue(int nHeight, int64 nFees)
     }
     else
     {
-    int64 nSubsidy=(int64)( 5000* GetDifficulty()); // should give abt 10 coins per block at initial Diff
+    int64 nSubsidy=(int64)( 50000* GetDifficulty()); // should give abt 10 coins per block at initial Diff
     nSubsidy >>= (nHeight / 4000); //Moores (new) law: half time 2000 x 2.5 min = 3.5 days
     return nSubsidy + nFees;
     }
