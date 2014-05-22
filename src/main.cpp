@@ -1083,7 +1083,7 @@ uint256 static GetOrphanRoot(const CBlockHeader* pblock)
     return pblock->GetHash();
 }
 
-int64 static GetBlockValue(int nHeight, int64 nFees)
+int64 static GetBlockValue(int nHeight, int64 nFees, const CBlockIndex* cbi=0)
 {
     if (nHeight < 8400)
     {
@@ -1095,12 +1095,31 @@ int64 static GetBlockValue(int nHeight, int64 nFees)
 
     return nSubsidy + nFees;
     }
-    else
+	else if (nHeight<8885)
     {
     int64 nSubsidy=(int64)( 50000* GetDifficulty()); // should give abt 10 coins per block at initial Diff
     nSubsidy >>= (nHeight / 4000); //Moores (new) law: half time 2000 x 2.5 min = 3.5 days
     return nSubsidy + nFees;
     }
+	else if (nHeight<8900)
+	{
+		int64 nSubsidy = (int64)(500000 * GetDifficulty(cbi)) ; 
+		printf(" Difficulty = %f", GetDifficulty(cbi));
+		printf("nSubsidy Before shift:   %d\n", (int)nSubsidy);
+		nSubsidy >>= (nHeight / 4000); //Moores (new) law: half time 2000 x 2.5 min = 3.5 days
+		printf("nSubsidy After shift:   %d\n", (int)nSubsidy);
+		return nSubsidy + nFees;
+	}
+	else
+	{
+		int64 nSubsidy = (int64)(500000 * GetDifficulty(cbi))*COIN; // should give abt 10 coins per block at initial Diff
+		nSubsidy >>= (nHeight / 4000); // "Moores law": half time 2000 x 2.5 min = 3.5 days	
+		return nSubsidy + nFees;
+		printf(" Difficulty = %f", GetDifficulty(cbi));
+		printf("nSubsidy Before shift:   %f\n", nSubsidy/COIN);
+		printf("nSubsidy After shift:   %f\n", nSubsidy/COIN);
+
+	}
 }
 
 static const int64 nTargetTimespan = 3.5 * 24 * 60 * 60; // Utex: 3.5 days
@@ -1728,8 +1747,8 @@ bool CBlock::ConnectBlock(CValidationState &state, CBlockIndex* pindex, CCoinsVi
     if (fBenchmark)
         printf("- Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin)\n", (unsigned)vtx.size(), 0.001 * nTime, 0.001 * nTime / vtx.size(), nInputs <= 1 ? 0 : 0.001 * nTime / (nInputs-1));
 
-    if (vtx[0].GetValueOut() > GetBlockValue(pindex->nHeight, nFees))
-        return state.DoS(100, error("ConnectBlock() : coinbase pays too much (actual=%"PRI64d" vs limit=%"PRI64d")", vtx[0].GetValueOut(), GetBlockValue(pindex->nHeight, nFees)));
+    if (vtx[0].GetValueOut() > GetBlockValue(pindex->nHeight, nFees,pindex))
+        return state.DoS(100, error("ConnectBlock() : coinbase pays too much (actual=%"PRI64d" vs limit=%"PRI64d")", vtx[0].GetValueOut(), GetBlockValue(pindex->nHeight, nFees,pindex)));
 
     if (!control.Wait())
         return state.DoS(100, false);
@@ -4484,7 +4503,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
         nLastBlockSize = nBlockSize;
         printf("CreateNewBlock(): total size %"PRI64u"\n", nBlockSize);
 
-        pblock->vtx[0].vout[0].nValue = GetBlockValue(pindexPrev->nHeight+1, nFees);
+        pblock->vtx[0].vout[0].nValue = GetBlockValue(pindexPrev->nHeight+1, nFees,pindexPrev);
         pblocktemplate->vTxFees[0] = -nFees;
 
         // Fill in header
