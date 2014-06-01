@@ -36,7 +36,7 @@ CTxMemPool mempool;
 unsigned int nTransactionsUpdated = 0;
 
 map<uint256, CBlockIndex*> mapBlockIndex;
-uint256 hashGenesisBlock("0x62a00c6084a66f685d5625f92553c1fbbb791f1b8ea7e50a65ed944ab0c503d7");
+uint256 hashGenesisBlock("0x130b2b8c539d4866b12d5b024b0d6ae830dcfb7dec5b4474c27a28e199012121");
 static CBigNum bnProofOfWorkLimit(~uint256(0) >> 2); // Utex: starting difficulty is 1 / 2^12
 CBlockIndex* pindexGenesisBlock = NULL;
 int nBestHeight = -1;
@@ -1083,47 +1083,22 @@ uint256 static GetOrphanRoot(const CBlockHeader* pblock)
     return pblock->GetHash();
 }
 
-int64 static GetBlockValue(int nHeight, int64 nFees, const CBlockIndex* cbi=0)
+int64 static GetBlockValue(int nHeight, int64 nFees, unsigned int nBits)
 {
-    if (nHeight < 8400)
-    {
-	int64 nSubsidy = 50 * COIN;
+	int64 nSubsidy = (int64)(100000000*GetDiff(nBits))*COIN;
 
-
-    // Subsidy is cut in half every 840000 blocks, which will occur approximately every 4 years
-    nSubsidy >>= (nHeight / 840000); // Utex: 840k blocks in ~4 years
-
-    return nSubsidy + nFees;
-    }
-	else if (nHeight<8885)
-    {
-    int64 nSubsidy=(int64)( 50000* GetDifficulty()); // should give abt 10 coins per block at initial Diff
-    nSubsidy >>= (nHeight / 4000); //Moores (new) law: half time 2000 x 2.5 min = 3.5 days
-    return nSubsidy + nFees;
-    }
-	else if (nHeight<8900)
-	{
-		int64 nSubsidy = (int64)(500000 * GetDifficulty(cbi)) ; 
-		printf(" Difficulty = %f", GetDifficulty(cbi));
-		printf("nSubsidy Before shift:   %d\n", (int)nSubsidy);
-		nSubsidy >>= (nHeight / 4000); //Moores (new) law: half time 2000 x 2.5 min = 3.5 days
-		printf("nSubsidy After shift:   %d\n", (int)nSubsidy);
+		//int64 nSubsidy = (1+(int64)(1000000* GetDifficulty(cbi)))*COIN; // should give abt 2 coins per block at initial Diff
+		nSubsidy >>= (nHeight / 100); // "Koomey's law": half time 12hrs
 		return nSubsidy + nFees;
-	}
-	else
-	{
-		int64 nSubsidy = (int64)(500000 * GetDifficulty(cbi))*COIN; // should give abt 10 coins per block at initial Diff
-		nSubsidy >>= (nHeight / 4000); // "Moores law": half time 2000 x 2.5 min = 3.5 days	
-		return nSubsidy + nFees;
-		printf(" Difficulty = %f", GetDifficulty(cbi));
-		printf("nSubsidy Before shift:   %f\n", nSubsidy/COIN);
-		printf("nSubsidy After shift:   %f\n", nSubsidy/COIN);
+		printf(" Difficulty = %f", GetDiff(nBits));
 
-	}
 }
 
-static const int64 nTargetTimespan = 3.5 * 24 * 60 * 60; // Utex: 3.5 days
-static const int64 nTargetSpacing = 2.5 * 60; // Utex: 2.5 minutes
+//static const int64 nTargetTimespan = 3.5 * 24 * 60 * 60; // Utex: 3.5 days 'orig code
+static const int64 nTargetTimespan = 2 * 60 ; // Utex: test 2 hrs
+//static const int64 nTargetSpacing = 2.5 * 60; // Utex: orig 2.5 minutes
+static const int64 nTargetSpacing = 15; // Utex:test 15 secs (retargets every 480 block)
+
 static const int64 nInterval = nTargetTimespan / nTargetSpacing;
 
 //
@@ -1184,10 +1159,10 @@ unsigned int static GetNextWorkRequired(const CBlockIndex* pindexLast, const CBl
 
     // Utex: This fixes an issue where a 51% attack can change difficulty at will.
     // Go back the full period unless it's the first retarget after genesis. Code courtesy of Art Forz
-    int blockstogoback = nInterval-1;
+    int blockstogoback = nInterval-2;
     if ((pindexLast->nHeight+1) != nInterval)
         blockstogoback = nInterval;
-
+    printf ("Blockstogoback = %u       pindex->nHeight = %u  nInterval = %u", blockstogoback, pindexLast->nHeight,nInterval);
     // Go back by what we want to be 14 days worth of blocks
     const CBlockIndex* pindexFirst = pindexLast;
     for (int i = 0; pindexFirst && i < blockstogoback; i++)
@@ -1747,8 +1722,9 @@ bool CBlock::ConnectBlock(CValidationState &state, CBlockIndex* pindex, CCoinsVi
     if (fBenchmark)
         printf("- Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin)\n", (unsigned)vtx.size(), 0.001 * nTime, 0.001 * nTime / vtx.size(), nInputs <= 1 ? 0 : 0.001 * nTime / (nInputs-1));
 
-    if (vtx[0].GetValueOut() > GetBlockValue(pindex->nHeight, nFees,pindex))
-        return state.DoS(100, error("ConnectBlock() : coinbase pays too much (actual=%"PRI64d" vs limit=%"PRI64d")", vtx[0].GetValueOut(), GetBlockValue(pindex->nHeight, nFees,pindex)));
+    if (vtx[0].GetValueOut() > GetBlockValue(pindex->nHeight, nFees,this->nBits))
+
+        return state.DoS(100, error("ConnectBlock() : coinbase pays too much (actual=%"PRI64d" vs limit=%"PRI64d" and height=%u)", vtx[0].GetValueOut(), GetBlockValue(pindex->nHeight, nFees,this->nBits),pindex->nHeight));
 
     if (!control.Wait())
         return state.DoS(100, false);
@@ -2814,16 +2790,16 @@ bool InitBlockIndex() {
         txNew.vin.resize(1);
         txNew.vout.resize(1);
         txNew.vin[0].scriptSig = CScript() << 486604799 << CBigNum(4) << vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
-        txNew.vout[0].nValue = 50 * COIN;
+        txNew.vout[0].nValue = 1 * COIN;
         txNew.vout[0].scriptPubKey = CScript() << ParseHex("040184710fa689ad5023690c80f3a49c8f13f8d45b8c857fbcbc8bc4a8e4d3eb4b10f4d4604fa08dce601aaf0f470216fe1b51850b4acf21b179c45070ac7b03a9") << OP_CHECKSIG;
         CBlock block;
         block.vtx.push_back(txNew);
         block.hashPrevBlock = 0;
         block.hashMerkleRoot = block.BuildMerkleTree();
         block.nVersion = 1;
-        block.nTime    = 1400328006;
-        block.nBits    = 0x200005ff;
-        block.nNonce   = 1084527252;
+        block.nTime    = 1401539911;
+        block.nBits    = 0x1f093088;
+        block.nNonce   = 1084545960;
 
         if (fTestNet)
         {
@@ -2836,7 +2812,8 @@ bool InitBlockIndex() {
         printf("%s\n", hash.ToString().c_str());
         printf("%s\n", hashGenesisBlock.ToString().c_str());
         printf("%s\n", block.hashMerkleRoot.ToString().c_str());
-        assert(block.hashMerkleRoot == uint256("0x97ddfbbae6be97fd6cdf3e7ca13232a3afff2353e29badfab7f73011edd4ced9"));
+        assert(block.hashMerkleRoot == uint256("0xea838b04653aae4d4a9a391f12a6e6e78015b11002eeb0e10ce8d0c41b5877de"));
+        //
         /// create genesis block begin
         // If genesis block hash does not match, then generate new genesis hash.
                 if (true && block.GetHash() != hashGenesisBlock)
@@ -2883,6 +2860,7 @@ bool InitBlockIndex() {
                 }
         // create genesis block end
         block.print();
+        printf("SG HASH = %s\n", hash.ToString().c_str());
         assert(hash == hashGenesisBlock);
 
         // Start new block file
@@ -4503,7 +4481,8 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn)
         nLastBlockSize = nBlockSize;
         printf("CreateNewBlock(): total size %"PRI64u"\n", nBlockSize);
 
-        pblock->vtx[0].vout[0].nValue = GetBlockValue(pindexPrev->nHeight+1, nFees,pindexPrev);
+        //pblock->vtx[0].vout[0].nValue = GetBlockValue(pindexPrev->nHeight+1, nFees,pindexPrev);
+        pblock->vtx[0].vout[0].nValue = GetBlockValue(pindexPrev->nHeight+1, nFees,GetNextWorkRequired(pindexPrev, pblock));
         pblocktemplate->vTxFees[0] = -nFees;
 
         // Fill in header
@@ -4611,9 +4590,11 @@ bool CheckWork(CBlock* pblock, CWallet& wallet, CReserveKey& reservekey)
     //// debug print
     printf("UtexMiner:\n");
     printf("proof-of-work found  \n  hash: %s  \ntarget: %s\n", hash.GetHex().c_str(), hashTarget.GetHex().c_str());
-    pblock->print();
+    CBlockIndex* pindexPrev = pindexBest;
+    //pblock->print();
     printf("generated %s\n", FormatMoney(pblock->vtx[0].vout[0].nValue).c_str());
-
+    printf ("Height:  %u \n",pindexPrev->nHeight+1);
+    printf ("Difficulty:  %e  \n", GetDiff(pblock->nBits));
     // Found a solution
     {
         LOCK(cs_main);
