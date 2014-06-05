@@ -1085,11 +1085,15 @@ uint256 static GetOrphanRoot(const CBlockHeader* pblock)
 
 int64 static GetBlockValue(int nHeight, int64 nFees, unsigned int nBits)
 {
-	int64 nSubsidy = (int64)(100000000*GetDiff(nBits))*COIN;
+		int64 units=(int64)(1000000000*GetDiff(nBits));
+		units >>=9; //Division by 512
 
-		//int64 nSubsidy = (1+(int64)(1000000* GetDifficulty(cbi)))*COIN; // should give abt 2 coins per block at initial Diff
-		nSubsidy >>= (nHeight / 100); // "Koomey's law": half time 12hrs
-		return nSubsidy + nFees;
+		int64 nSubsidy = units*COIN;
+
+
+		nSubsidy >>= (nHeight / 500); // halving time in blocks
+		nSubsidy=(nSubsidy>1)? nSubsidy : 1;
+		return  nSubsidy + nFees;
 		printf(" Difficulty = %f", GetDiff(nBits));
 
 }
@@ -1097,7 +1101,7 @@ int64 static GetBlockValue(int nHeight, int64 nFees, unsigned int nBits)
 //static const int64 nTargetTimespan = 3.5 * 24 * 60 * 60; // Utex: 3.5 days 'orig code
 static const int64 nTargetTimespan = 2 * 60 ; // Utex: test 2 hrs
 //static const int64 nTargetSpacing = 2.5 * 60; // Utex: orig 2.5 minutes
-static const int64 nTargetSpacing = 15; // Utex:test 15 secs (retargets every 480 block)
+static const int64 nTargetSpacing = 15; // Utex:no. of block between retargeting
 
 static const int64 nInterval = nTargetTimespan / nTargetSpacing;
 
@@ -1162,7 +1166,7 @@ unsigned int static GetNextWorkRequired(const CBlockIndex* pindexLast, const CBl
     int blockstogoback = nInterval-2;
     if ((pindexLast->nHeight+1) != nInterval)
         blockstogoback = nInterval;
-    printf ("Blockstogoback = %u       pindex->nHeight = %u  nInterval = %u", blockstogoback, pindexLast->nHeight,nInterval);
+    printf ("Blockstogoback = %u       pindex->nHeight = %u  nInterval = %"PRI64d"", blockstogoback, pindexLast->nHeight,nInterval);
     // Go back by what we want to be 14 days worth of blocks
     const CBlockIndex* pindexFirst = pindexLast;
     for (int i = 0; pindexFirst && i < blockstogoback; i++)

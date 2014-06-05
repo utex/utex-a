@@ -267,7 +267,7 @@ bool static Socks5(string strDest, int port, SOCKET& hSocket)
             case 0x02: return error("Proxy error: connection not allowed");
             case 0x03: return error("Proxy error: network unreachable");
             case 0x04: return error("Proxy error: host unreachable");
-            case 0x05: return error("Proxy error: connection refused");
+            //case 0x05: return error("Proxy error: connection refused");
             case 0x06: return error("Proxy error: TTL expired");
             case 0x07: return error("Proxy error: protocol error");
             case 0x08: return error("Proxy error: address type not supported");
