@@ -1085,17 +1085,17 @@ uint256 static GetOrphanRoot(const CBlockHeader* pblock)
 
 int64 static GetBlockValue(int nHeight, int64 nFees, unsigned int nBits)
 {
-		int64 units=(int64)(1000000000*GetDiff(nBits));
-		units >>=9; //Division by 512
-
-		int64 nSubsidy = units*COIN;
-
-
-		nSubsidy >>= (nHeight / 500); // halving time in blocks
-		nSubsidy=(nSubsidy>1)? nSubsidy : 1;
-		return  nSubsidy + nFees;
-		printf(" Difficulty = %f", GetDiff(nBits));
-
+	//Defining blockreward in terms of difficulty/512 - normed to nnnn gigahash/coin
+	int64 nSubsidy=(int64)(1000000000*GetDiff(nBits));
+	nSubsidy >>=9;
+	// Koomey's law applied
+	nSubsidy >>= (nHeight / 500);
+	nSubsidy*=1.0e09; //test purpose
+	// Blockreward in coins
+	nSubsidy *= COIN;
+	//One coin is minimum blockreward whatsoever
+	nSubsidy=(nSubsidy>COIN)? nSubsidy : COIN;
+	return  nSubsidy + nFees;
 }
 
 //static const int64 nTargetTimespan = 3.5 * 24 * 60 * 60; // Utex: 3.5 days 'orig code
