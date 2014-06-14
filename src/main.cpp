@@ -36,8 +36,8 @@ CTxMemPool mempool;
 unsigned int nTransactionsUpdated = 0;
 
 map<uint256, CBlockIndex*> mapBlockIndex;
-uint256 hashGenesisBlock("0x130b2b8c539d4866b12d5b024b0d6ae830dcfb7dec5b4474c27a28e199012121");
-static CBigNum bnProofOfWorkLimit(~uint256(0) >> 2); // Utex: starting difficulty is 1 / 2^12
+uint256 hashGenesisBlock("0x16b3695d4190fce1ccef2bf6b1115e049d2b863dc9c02f83f6e9aaacb6c3afaa");
+static CBigNum bnProofOfWorkLimit(~uint256(0) >> 20); // Utex: starting difficulty is 1 / 2^12
 CBlockIndex* pindexGenesisBlock = NULL;
 int nBestHeight = -1;
 uint256 nBestChainWork = 0;
@@ -1085,17 +1085,15 @@ uint256 static GetOrphanRoot(const CBlockHeader* pblock)
 
 int64 static GetBlockValue(int nHeight, int64 nFees, unsigned int nBits)
 {
-	//Defining blockreward in terms of difficulty/512 - normed to nnnn gigahash/coin
+	//Defining blockreward in terms of difficulty
 	int64 nSubsidy=(int64)(1000000000*GetDiff(nBits));
-	nSubsidy >>=9;
 	// Koomey's law applied
-	nSubsidy >>= (nHeight / 500);
-	nSubsidy*=1.0e09; //test purpose
+	nSubsidy >>= (nHeight / 100);
 	// Blockreward in coins
 	nSubsidy *= COIN;
 	//One coin is minimum blockreward whatsoever
-	nSubsidy=(nSubsidy>COIN)? nSubsidy : COIN;
-	return  nSubsidy + nFees;
+	return(nSubsidy>COIN)? nSubsidy : COIN;
+
 }
 
 //static const int64 nTargetTimespan = 3.5 * 24 * 60 * 60; // Utex: 3.5 days 'orig code
@@ -1195,7 +1193,7 @@ unsigned int static GetNextWorkRequired(const CBlockIndex* pindexLast, const CBl
     printf("nTargetTimespan = %"PRI64d"    nActualTimespan = %"PRI64d"\n", nTargetTimespan, nActualTimespan);
     printf("Before: %08x  %s\n", pindexLast->nBits, CBigNum().SetCompact(pindexLast->nBits).getuint256().ToString().c_str());
     printf("After:  %08x  %s\n", bnNew.GetCompact(), bnNew.getuint256().ToString().c_str());
-
+    printf("Limit:  %08x  %s\n", bnProofOfWorkLimit.GetCompact(), bnProofOfWorkLimit.getuint256().ToString().c_str());
     return bnNew.GetCompact();
 }
 
@@ -2789,7 +2787,7 @@ bool InitBlockIndex() {
         //   vMerkleTree: 97ddfbbae6
 
         // Genesis block
-        const char* pszTimestamp = "NY Times 05/Oct/2011 Steve Jobs, Apple’s Visionary, Dies at 56";
+        const char* pszTimestamp = "hash of btc block 305600 2b6f9c1ce8261225d891ce2b5fdee00e2deebd2f23d61c8e";
         CTransaction txNew;
         txNew.vin.resize(1);
         txNew.vout.resize(1);
@@ -2801,14 +2799,14 @@ bool InitBlockIndex() {
         block.hashPrevBlock = 0;
         block.hashMerkleRoot = block.BuildMerkleTree();
         block.nVersion = 1;
-        block.nTime    = 1401539911;
+        block.nTime    = 1402679077;
         block.nBits    = 0x1f093088;
-        block.nNonce   = 1084545960;
+        block.nNonce   = 1084549233;
 
         if (fTestNet)
         {
             block.nTime    = 1317798646;
-            block.nNonce   = 385270584;
+            block.nNonce   = 1084549233;
         }
 
         //// debug print
@@ -2816,7 +2814,7 @@ bool InitBlockIndex() {
         printf("%s\n", hash.ToString().c_str());
         printf("%s\n", hashGenesisBlock.ToString().c_str());
         printf("%s\n", block.hashMerkleRoot.ToString().c_str());
-        assert(block.hashMerkleRoot == uint256("0xea838b04653aae4d4a9a391f12a6e6e78015b11002eeb0e10ce8d0c41b5877de"));
+        assert(block.hashMerkleRoot == uint256("0xd79300c00d9d2a03b8cd23965f29c98a102284e53101aac896068972af1a83f6"));
         //
         /// create genesis block begin
         // If genesis block hash does not match, then generate new genesis hash.
@@ -4594,6 +4592,8 @@ bool CheckWork(CBlock* pblock, CWallet& wallet, CReserveKey& reservekey)
     //// debug print
     printf("UtexMiner:\n");
     printf("proof-of-work found  \n  hash: %s  \ntarget: %s\n", hash.GetHex().c_str(), hashTarget.GetHex().c_str());
+    printf("Limit:  %08x  %s\n", bnProofOfWorkLimit.GetCompact(), bnProofOfWorkLimit.getuint256().ToString().c_str());
+
     CBlockIndex* pindexPrev = pindexBest;
     //pblock->print();
     printf("generated %s\n", FormatMoney(pblock->vtx[0].vout[0].nValue).c_str());
