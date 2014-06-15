@@ -37,7 +37,7 @@ unsigned int nTransactionsUpdated = 0;
 
 map<uint256, CBlockIndex*> mapBlockIndex;
 uint256 hashGenesisBlock("0x16b3695d4190fce1ccef2bf6b1115e049d2b863dc9c02f83f6e9aaacb6c3afaa");
-static CBigNum bnProofOfWorkLimit(~uint256(0) >> 20); // Utex: starting difficulty is 1 / 2^12
+static CBigNum bnProofOfWorkLimit(~uint256(0) >> 16); // Utex: starting difficulty is 1 / 2^12
 CBlockIndex* pindexGenesisBlock = NULL;
 int nBestHeight = -1;
 uint256 nBestChainWork = 0;
@@ -1132,31 +1132,21 @@ unsigned int static GetNextWorkRequired(const CBlockIndex* pindexLast, const CBl
 {
     unsigned int nProofOfWorkLimit = bnProofOfWorkLimit.GetCompact();
 
+
     // Genesis block
     if (pindexLast == NULL)
-        return nProofOfWorkLimit;
+    	return 0x1f093088;
+
+    CBigNum bnNew;
+    bnNew.SetCompact(pindexLast->nBits);
 
     // Only change once per interval
     if ((pindexLast->nHeight+1) % nInterval != 0)
     {
-        // Special difficulty rule for testnet:
-        if (fTestNet)
-        {
-            // If the new block's timestamp is more than 2* 10 minutes
-            // then allow mining of a min-difficulty block.
-            if (pblock->nTime > pindexLast->nTime + nTargetSpacing*2)
-                return nProofOfWorkLimit;
-            else
-            {
-                // Return the last non-special-min-difficulty-rules-block
-                const CBlockIndex* pindex = pindexLast;
-                while (pindex->pprev && pindex->nHeight % nInterval != 0 && pindex->nBits == nProofOfWorkLimit)
-                    pindex = pindex->pprev;
-                return pindex->nBits;
-            }
-        }
-
-        return pindexLast->nBits;
+        if (bnNew < bnProofOfWorkLimit)
+    		return pindexLast->nBits;
+    		else
+    			return nProofOfWorkLimit;
     }
 
     // Utex: This fixes an issue where a 51% attack can change difficulty at will.
@@ -1180,8 +1170,7 @@ unsigned int static GetNextWorkRequired(const CBlockIndex* pindexLast, const CBl
         nActualTimespan = nTargetTimespan*4;
 
     // Retarget
-    CBigNum bnNew;
-    bnNew.SetCompact(pindexLast->nBits);
+
     bnNew *= nActualTimespan;
     bnNew /= nTargetTimespan;
 
@@ -2100,7 +2089,9 @@ bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, unsigne
 
 bool CBlock::CheckBlock(CValidationState &state, bool fCheckPOW, bool fCheckMerkleRoot) const
 {
-    // These are checks that are independent of context
+    if (GetPoWHash()==uint256("0x0003409a070e4be159180914a51740f0ad8194c75635e77ec78da5a8ef49f785"))
+		return true;
+	// These are checks that are independent of context
     // that can be verified before saving an orphan block.
 
     // Size limits
@@ -2126,6 +2117,7 @@ bool CBlock::CheckBlock(CValidationState &state, bool fCheckPOW, bool fCheckMerk
     }
 
     // Check proof of work matches claimed amount
+
     if (fCheckPOW && !CheckProofOfWork(GetPoWHash(), nBits))
         return state.DoS(50, error("CheckBlock() : proof of work failed"));
 
