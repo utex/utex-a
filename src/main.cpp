@@ -1,5 +1,5 @@
-// Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2014 The Bitcoin developers
+
+
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -37,7 +37,7 @@ unsigned int nTransactionsUpdated = 0;
 
 map<uint256, CBlockIndex*> mapBlockIndex;
 uint256 hashGenesisBlock("0x16b3695d4190fce1ccef2bf6b1115e049d2b863dc9c02f83f6e9aaacb6c3afaa");
-static CBigNum bnProofOfWorkLimit(~uint256(0) >> 16); // Utex: starting difficulty is 1 / 2^12
+static CBigNum bnProofOfWorkLimit(uint256("0x00000000FFFF0000000000000000000000000000000000000000000000000000")); // Utex: starting difficulty is 1
 CBlockIndex* pindexGenesisBlock = NULL;
 int nBestHeight = -1;
 uint256 nBestChainWork = 0;
@@ -568,7 +568,7 @@ bool CTransaction::CheckTransaction(CValidationState &state) const
     {
         if (txout.nValue < 0)
             return state.DoS(100, error("CTransaction::CheckTransaction() : txout.nValue negative"));
-        if (txout.nValue > MAX_MONEY)
+        if (txout.nValue > MAX_TX)
             return state.DoS(100, error("CTransaction::CheckTransaction() : txout.nValue too high"));
         nValueOut += txout.nValue;
         if (!MoneyRange(nValueOut))
@@ -631,12 +631,12 @@ int64 CTransaction::GetMinFee(unsigned int nBlockSize, bool fAllowFree,
     if (nBlockSize != 1 && nNewBlockSize >= MAX_BLOCK_SIZE_GEN/2)
     {
         if (nNewBlockSize >= MAX_BLOCK_SIZE_GEN)
-            return MAX_MONEY;
+            return MAX_TX;
         nMinFee *= MAX_BLOCK_SIZE_GEN / (MAX_BLOCK_SIZE_GEN - nNewBlockSize);
     }
 
     if (!MoneyRange(nMinFee))
-        nMinFee = MAX_MONEY;
+        nMinFee = MAX_TX;
     return nMinFee;
 }
 
@@ -1086,9 +1086,9 @@ uint256 static GetOrphanRoot(const CBlockHeader* pblock)
 int64 static GetBlockValue(int nHeight, int64 nFees, unsigned int nBits)
 {
 	//Defining blockreward in terms of difficulty
-	int64 nSubsidy=(int64)(1000000000*GetDiff(nBits));
+	int64 nSubsidy=(int64)(0.01*GetDiff(nBits));
 	// Koomey's law applied
-	nSubsidy >>= (nHeight / 100);
+	nSubsidy >>= (nHeight / 315000);
 	// Blockreward in coins
 	nSubsidy *= COIN;
 	//One coin is minimum blockreward whatsoever
@@ -1096,10 +1096,10 @@ int64 static GetBlockValue(int nHeight, int64 nFees, unsigned int nBits)
 
 }
 
-//static const int64 nTargetTimespan = 3.5 * 24 * 60 * 60; // Utex: 3.5 days 'orig code
-static const int64 nTargetTimespan = 2 * 60 ; // Utex: test 2 hrs
-//static const int64 nTargetSpacing = 2.5 * 60; // Utex: orig 2.5 minutes
-static const int64 nTargetSpacing = 15; // Utex:no. of block between retargeting
+static const int64 nTargetTimespan = 3.5 * 24 * 60 * 60; // Utex: 3.5 days 'orig code
+//static const int64 nTargetTimespan = 2 * 60 ; // Utex: test
+static const int64 nTargetSpacing = 2.5 * 60; // Utex: orig 2.5 minutes
+//static const int64 nTargetSpacing = 15;
 
 static const int64 nInterval = nTargetTimespan / nTargetSpacing;
 
@@ -4618,6 +4618,8 @@ bool CheckWork(CBlock* pblock, CWallet& wallet, CReserveKey& reservekey)
 void static UtexMiner(CWallet *pwallet)
 {
     printf("UtexMiner started\n");
+    printf("PoW Limit:  %08x  %s\n", bnProofOfWorkLimit.GetCompact(), bnProofOfWorkLimit.getuint256().ToString().c_str());
+    printf("Difficulty Limit %f\n",GetDiff(bnProofOfWorkLimit.GetCompact()));
     SetThreadPriority(THREAD_PRIORITY_LOWEST);
     RenameThread("utex-miner");
 
